@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
  
 import imgaug as ia
 from imgaug import augmenters as iaa
+from tqdm import tqdm
+import random
  
 ia.seed(1)
  
@@ -57,14 +59,14 @@ def mk_difficult_zero_change_class(root, image_id, saveroot = None): # 修改本
         ymax = bndbox.find('ymax')
         ymax.text = str(int(float(ymax.text)))
         difficult = object.find("difficult")
-        if not (difficult.text == "1"):  # 将没有设置difficult的标签设置为0
+        if not (difficult.text == "1"):  # 将没有设置difficult的标签设置为0，因为部分数据中的该项是英文字符串，处理时可能会产生错误
             difficult.text = "0"
-        name = object.find("name")  # 将船舶数据的名称修改一下，统一成boat
+        name = object.find("name")  # 项目需要，将boat的子类别全部归类为boat类别，根据自己使用情况是否使用
         if name.text in classes_count:
             name.text = "boat"
         index += 1
 
-        print("index=", index)
+        # print("index=", index)
     if(saveroot):
         tree.write(os.path.join(root, str("%06d" % (int(image_id))) + '.xml'))
     else:
@@ -145,11 +147,8 @@ def change_xml_list_annotation(root, image_id, new_target, saveroot, id):
         xmax.text = str(new_xmax)
         ymax = bndbox.find('ymax')
         ymax.text = str(new_ymax)
- 
         index += 1
- 
-        print("index=",index)
- 
+        # print("index=",index)
  
     tree.write(os.path.join(saveroot, str("%06d" % int(id)) + '.xml'))
  
@@ -178,10 +177,20 @@ def mkdir(path):
  
 if __name__ == "__main__":
  
-    IMG_DIR = "images"  # 原始图片数据文件路径
-    XML_DIR = "xml"  # 原始xml数据文件路径
- 
-    AUG_XML_DIR = "Annotations"  # 存储增强后的XML文件夹路径
+    recorrect = True
+    IMG_DIR = "F:\Datasets\VOCdevkit2\Init\JPEGImages"  # 原始图片数据文件路径
+    XML_DIR = "F:\Datasets\VOCdevkit2\Init\Annotations"  # 原始xml数据文件路径
+    
+    # 修改矫正xml文件中的标签信息
+    if recorrect:
+        print("正在处理原始标签信息：\n")
+        for root, subdirectors, imageId in os.walk(XML_DIR):
+            for imgid in tqdm(imageId):
+                mk_difficult_zero_change_class(root, imgid[:-4])
+        print("原始标签信息处理完毕！\n")
+
+
+    AUG_XML_DIR = "F:\Datasets\VOCdevkit2\VOC2007\Annotations"  # 存储增强后的XML文件夹路径
     if(os.path.exists(AUG_XML_DIR)):
         try:
             shutil.rmtree(AUG_XML_DIR)
@@ -189,7 +198,7 @@ if __name__ == "__main__":
             a = 1
     mkdir(AUG_XML_DIR)
  
-    AUG_IMG_DIR = "JPEGImages"  # 存储增强后的影像文件夹路径
+    AUG_IMG_DIR = "F:\Datasets\VOCdevkit2\VOC2007\JPEGImages"  # 存储增强后的影像文件夹路径
     flag = os.path.exists(AUG_IMG_DIR)
     if(os.path.exists(AUG_IMG_DIR)):
         try:
@@ -204,8 +213,28 @@ if __name__ == "__main__":
     boxes_img_aug_list = []
     new_bndbox = []
     new_bndbox_list = []
- 
-    # 影像增强， 可根据imgaug介绍做相应的选择，相关使用库中有详细介绍。
+    # 可以实现的图像增强方法；
+    sequentialList = [
+        # iaa.Flipud(0.5),  # vertically flip 20% of all images
+        iaa.Fliplr(0.5),  # 镜像
+        iaa.Sharpen(alpha=(0, 1.0), lightness=(0.75, 1.5)),
+        iaa.Crop(px=(0, 16)),
+        # iaa.Add((-30, 30), per_channel=0.5),
+        iaa.Multiply((0.45, 1.5)),  # change brightness, doesn't affect BBs
+        iaa.Affine(
+            # translate_px={"x": 15, "y": 15},
+            scale=(0.8, 0.95),
+            rotate = (-10, 10)
+            # rotate=(-30, 30)
+        ), # translate by 40/60px on x/y axis, and scale to 50-70%, affects BBs
+        iaa.GaussianBlur(),
+        iaa.AddElementwise((-20, 20)),
+        iaa.Dropout(p = (0, 0.1))
+    ]
+
+    seqLength = len(sequentialList)
+    ''' 
+    # 影像增强, 该部分代码会对所有的图像执行相同的操作， 可根据imgaug介绍做相应的选择，相关使用库中有详细介绍。
     seq = iaa.Sequential([
         # iaa.Flipud(0.5),  # vertically flip 20% of all images
         iaa.Fliplr(0.5),  # 镜像
@@ -223,67 +252,80 @@ if __name__ == "__main__":
         iaa.AddElementwise((-20, 20)),
         iaa.Dropout(p = (0, 0.1))
     ])
- 
+    '''
+
+    print("正在进行图像增强：")
     for root, sub_folders, files in os.walk(XML_DIR):
  
-        for name in files:
- 
-            bndbox = read_xml_annotation(XML_DIR, name)
-            shutil.copy(os.path.join(XML_DIR, name), AUG_XML_DIR) # 复制原xml文件
-            shutil.copy(os.path.join(IMG_DIR, name[:-4] + '.jpg'), AUG_IMG_DIR) # 复制原img文件
-            print(os.path.join(IMG_DIR, name[:-4] + '.jpg'))
- 
-            for epoch in range(AUGLOOP):
-                seq_det = seq.to_deterministic()  # 保持坐标和图像同步改变，而不是随机
-                # 读取图片
-                img = Image.open(os.path.join(IMG_DIR, name[:-4] + '.jpg'))
-                # sp = img.size
-                img = np.asarray(img)
-                # 添加针对空图片的处理，即图像中没有标注信息时，对len(bndbox)的循环失效，里面的图片复制没有执行，但是外面的图像增强执行
-                if(len(bndbox) == 0):
-                    # 存储变化后的图片
-                    image_aug = seq_det.augment_images([img])[0]
-                    # path = os.path.join(AUG_IMG_DIR,str("%06d" % (len(files) + int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
-                    path = os.path.join(AUG_IMG_DIR, str("%06d" % (int(name[:-4]) + (epoch + 1) * 10000)) + '.jpg')
-
-                    #image_auged = bbs.draw_on_image(image_aug, thickness=0)  ####################################
-
-                    Image.fromarray(image_aug).save(path)
-                else:
-                    # bndbox 坐标增强
-                    for i in range(len(bndbox)):
-                        bbs = ia.BoundingBoxesOnImage([
-                            ia.BoundingBox(x1=bndbox[i][0], y1=bndbox[i][1], x2=bndbox[i][2], y2=bndbox[i][3]),
-                        ], shape=img.shape)
-
-                        bbs_aug = seq_det.augment_bounding_boxes([bbs])[0]
-                        boxes_img_aug_list.append(bbs_aug)
-
-                        # new_bndbox_list:[[x1,y1,x2,y2],...[],[]]
-                        n_x1 = int(max(1, min(img.shape[1], bbs_aug.bounding_boxes[0].x1)))
-                        n_y1 = int(max(1, min(img.shape[0], bbs_aug.bounding_boxes[0].y1)))
-                        n_x2 = int(max(1, min(img.shape[1], bbs_aug.bounding_boxes[0].x2)))
-                        n_y2 = int(max(1, min(img.shape[0], bbs_aug.bounding_boxes[0].y2)))
-                        if n_x1 == 1 and n_x1 == n_x2:
-                            n_x2 += 1
-                        if n_y1 == 1 and n_y2 == n_y1:
-                            n_y2 += 1
-                        if n_x1 >= n_x2 or n_y1 >= n_y2:
-                            print('error', name)
-                        new_bndbox_list.append([n_x1, n_y1, n_x2, n_y2])
-
+        for name in tqdm(files):
+            try:    
+                bndbox = read_xml_annotation(XML_DIR, name)
+                shutil.copy(os.path.join(XML_DIR, name), AUG_XML_DIR) # 复制原xml文件
+                shutil.copy(os.path.join(IMG_DIR, name[:-4] + '.jpg'), AUG_IMG_DIR) # 复制原img文件
+                # print(os.path.join(IMG_DIR, name[:-4] + '.jpg'))
+    
+                for epoch in range(AUGLOOP):
+                    # 随机生成增强序列
+                    num = random.randint(0, 3)
+                    seqindexList = [random.randint(0, seqLength-1) for _ in range(num)]
+                    seq = iaa.Sequential([sequentialList[i] for i in seqindexList])
+                    seq_det = seq.to_deterministic()  # 保持坐标和图像同步改变，而不是随机
+                    # 读取图片
+                    img = Image.open(os.path.join(IMG_DIR, name[:-4] + '.jpg'))
+                    # sp = img.size
+                    img = np.asarray(img)
+                    # 添加针对空图片的处理，即图像中没有标注信息时，对len(bndbox)的循环失效，里面的图片复制没有执行，但是外面的图像增强执行
+                    if(len(bndbox) == 0):
                         # 存储变化后的图片
                         image_aug = seq_det.augment_images([img])[0]
                         # path = os.path.join(AUG_IMG_DIR,str("%06d" % (len(files) + int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
-                        path = os.path.join(AUG_IMG_DIR,str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
+                        path = os.path.join(AUG_IMG_DIR, str("%06d" % (int(name[:-4]) + (epoch + 1) * 10000)) + '.jpg')
 
-                        image_auged = bbs.draw_on_image(image_aug, thickness=0)####################################
+                        #image_auged = bbs.draw_on_image(image_aug, thickness=0)  ####################################
 
-                        Image.fromarray(image_auged).save(path)
- 
-                # 存储变化后的XML
-                # change_xml_list_annotation(XML_DIR, name[:-4], new_bndbox_list, AUG_XML_DIR,len(files) + int(name[:-4]) + epoch * 10000)
-                change_xml_list_annotation(XML_DIR, name[:-4], new_bndbox_list, AUG_XML_DIR, int(name[:-4]) + (epoch+1) * 10000)
-                # print(str("%06d" % (len(files) + int(name[:-4]) + epoch * 10000)) + '.jpg')
-                print(str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
-                new_bndbox_list = []
+                        Image.fromarray(image_aug).save(path)
+                    else:
+                        # bndbox 坐标增强
+                        for i in range(len(bndbox)):
+                            bbs = ia.BoundingBoxesOnImage([
+                                ia.BoundingBox(x1=bndbox[i][0], y1=bndbox[i][1], x2=bndbox[i][2], y2=bndbox[i][3]),
+                            ], shape=img.shape)
+
+                            bbs_aug = seq_det.augment_bounding_boxes([bbs])[0]
+                            boxes_img_aug_list.append(bbs_aug)
+
+                            # new_bndbox_list:[[x1,y1,x2,y2],...[],[]]
+                            n_x1 = int(max(1, min(img.shape[1], bbs_aug.bounding_boxes[0].x1)))
+                            n_y1 = int(max(1, min(img.shape[0], bbs_aug.bounding_boxes[0].y1)))
+                            n_x2 = int(max(1, min(img.shape[1], bbs_aug.bounding_boxes[0].x2)))
+                            n_y2 = int(max(1, min(img.shape[0], bbs_aug.bounding_boxes[0].y2)))
+                            if n_x1 == 1 and n_x1 == n_x2:
+                                n_x2 += 1
+                            if n_y1 == 1 and n_y2 == n_y1:
+                                n_y2 += 1
+                            if n_x1 >= n_x2 or n_y1 >= n_y2:
+                                print('error', name)
+                            new_bndbox_list.append([n_x1, n_y1, n_x2, n_y2])
+
+                            # 存储变化后的图片
+                            image_aug = seq_det.augment_images([img])[0]
+                            # path = os.path.join(AUG_IMG_DIR,str("%06d" % (len(files) + int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
+                            path = os.path.join(AUG_IMG_DIR,str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
+
+                            image_auged = bbs.draw_on_image(image_aug, thickness=0)####################################
+
+                            Image.fromarray(image_auged).save(path)
+    
+                    # 存储变化后的XML
+                    # change_xml_list_annotation(XML_DIR, name[:-4], new_bndbox_list, AUG_XML_DIR,len(files) + int(name[:-4]) + epoch * 10000)
+                    change_xml_list_annotation(XML_DIR, name[:-4], new_bndbox_list, AUG_XML_DIR, int(name[:-4]) + (epoch+1) * 10000)
+                    # print(str("%06d" % (len(files) + int(name[:-4]) + epoch * 10000)) + '.jpg')
+                    # print(str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
+                    new_bndbox_list = []
+            except Exception as e:
+                
+                # print("发生错误：", e)
+                raise e
+    print("处理完毕")
+
+    os.system("pause")

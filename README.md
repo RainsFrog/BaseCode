@@ -5,6 +5,8 @@
 
 ## TreatmentDatasets: 
 
+KeyWords：数据集处理，VOC， COCO， Yolo， 图像增强
+
 数据处理代码，基本上是python实现
 
  * convert_xml_to_yolo_object.py
@@ -36,5 +38,24 @@
 
   ​	在VOCdevkit同级目录或者在其根目录下，会生成train.txt以及test.txt两个文件，训练时训练集和测试集通过这两个文件进行指定。
 
-	* 
-	* 
+	*
+
+* imgEhance.py
+
+  图像增强代码，通过使用imgaug库实现图像增强。对于原数据可以覆盖也可以复制。生成新的VOC格式的数据集。
+
+* renameImgAndRemove.py
+
+  整理数据集，统一编号，文件名为12位的数字，前8位设置位数据处理日期，后四位为当前日期下的顺序编号。对于质量不好的数据没有标注而且没有生成xml文件，对于这部分图片进行了删除处理
+
+* testTheConvertResult.py
+
+  处理结果测试代码，对于数据较少的数据集，可以使用标注工具（本人使用的是labelImg）进行查看，对于处理数据比较多的，该代码可以随机查看指定数量的图片以及标注结果，界面显示。
+
+* voc2coco.py
+
+  现有xml格式的VOC数据集转换成COCO数据集格式，会生成json格式文件
+
+* 标签和图片对应关系比较.py
+
+  查看标签和图片的对应关系，是否一一对应，生成两个文件夹的文件列表，顺序比较
