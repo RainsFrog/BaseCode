@@ -176,11 +176,15 @@ def mkdir(path):
  
  
 if __name__ == "__main__":
- 
+    
+    treatmentPercent = 1 # 图像增强比例，在0,1之间
+    AUGLOOP = 2  # 每张影像增强的数量
     recorrect = True
     IMG_DIR = "F:\Datasets\VOCdevkit2\Init\JPEGImages"  # 原始图片数据文件路径
     XML_DIR = "F:\Datasets\VOCdevkit2\Init\Annotations"  # 原始xml数据文件路径
-    
+    AUG_XML_DIR = "F:\Datasets\VOCdevkit2\VOC2007\Annotations"  # 存储增强后的XML文件夹路径
+    AUG_IMG_DIR = "F:\Datasets\VOCdevkit2\VOC2007\JPEGImages"  # 存储增强后的影像文件夹路径
+
     # 修改矫正xml文件中的标签信息
     if recorrect:
         print("正在处理原始标签信息：\n")
@@ -188,17 +192,14 @@ if __name__ == "__main__":
             for imgid in tqdm(imageId):
                 mk_difficult_zero_change_class(root, imgid[:-4])
         print("原始标签信息处理完毕！\n")
-
-
-    AUG_XML_DIR = "F:\Datasets\VOCdevkit2\VOC2007\Annotations"  # 存储增强后的XML文件夹路径
+  
     if(os.path.exists(AUG_XML_DIR)):
         try:
             shutil.rmtree(AUG_XML_DIR)
         except FileNotFoundError as e:
             a = 1
     mkdir(AUG_XML_DIR)
- 
-    AUG_IMG_DIR = "F:\Datasets\VOCdevkit2\VOC2007\JPEGImages"  # 存储增强后的影像文件夹路径
+     
     flag = os.path.exists(AUG_IMG_DIR)
     if(os.path.exists(AUG_IMG_DIR)):
         try:
@@ -207,8 +208,6 @@ if __name__ == "__main__":
         except FileNotFoundError as e:
             a = 1
     mkdir(AUG_IMG_DIR)
- 
-    AUGLOOP = 2  # 每张影像增强的数量
  
     boxes_img_aug_list = []
     new_bndbox = []
@@ -221,12 +220,12 @@ if __name__ == "__main__":
         iaa.Crop(px=(0, 16)),
         # iaa.Add((-30, 30), per_channel=0.5),
         iaa.Multiply((0.45, 1.5)),  # change brightness, doesn't affect BBs
-        iaa.Affine(
-            # translate_px={"x": 15, "y": 15},
-            scale=(0.8, 0.95),
-            rotate = (-10, 10)
-            # rotate=(-30, 30)
-        ), # translate by 40/60px on x/y axis, and scale to 50-70%, affects BBs
+        # iaa.Affine(
+        #     # translate_px={"x": 15, "y": 15},
+        #     scale=(0.8, 0.95),
+        #     rotate = (-10, 10)
+        #     # rotate=(-30, 30)
+        # ), # translate by 40/60px on x/y axis, and scale to 50-70%, affects BBs
         iaa.GaussianBlur(),
         iaa.AddElementwise((-20, 20)),
         iaa.Dropout(p = (0, 0.1))
@@ -255,8 +254,19 @@ if __name__ == "__main__":
     '''
 
     print("正在进行图像增强：")
-    for root, sub_folders, files in os.walk(XML_DIR):
- 
+    for root, sub_folders, filesall in os.walk(XML_DIR):
+        filesNum = len(filesall) # 所有文件的长度
+        if(filesNum == 0):
+            print("没有要增强的文件")
+            break
+        if not (treatmentPercent == 1): # 对于全部处理，直接计算
+            countToTreat = int(filesNum * treatmentPercent) # 计算要处理的数量    
+            # 随机生成上面数量的索引列表
+            indexList = random.sample(range(1, countToTreat), filesNum)
+            # 生成要处理的文件列表
+            files = [filesall[i] for i in indexList]
+        else:
+            files = filesall
         for name in tqdm(files):
             try:    
                 bndbox = read_xml_annotation(XML_DIR, name)
@@ -304,7 +314,8 @@ if __name__ == "__main__":
                             if n_y1 == 1 and n_y2 == n_y1:
                                 n_y2 += 1
                             if n_x1 >= n_x2 or n_y1 >= n_y2:
-                                print('error', name)
+                                print("\n")
+                                print('error', name, "，%d epoch %d"%(epoch, i), "标签出现错误, ", n_x1, ",", n_y1)
                             new_bndbox_list.append([n_x1, n_y1, n_x2, n_y2])
 
                             # 存储变化后的图片
@@ -322,8 +333,7 @@ if __name__ == "__main__":
                     # print(str("%06d" % (len(files) + int(name[:-4]) + epoch * 10000)) + '.jpg')
                     # print(str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
                     new_bndbox_list = []
-            except Exception as e:
-                
+            except Exception as e: 
                 # print("发生错误：", e)
                 raise e
     print("处理完毕")
