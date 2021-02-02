@@ -24,11 +24,28 @@ from imgaug import augmenters as iaa
 from tqdm import tqdm
 import random
  
+import platform
+if platform.system()=="Windows":
+    splitchar = "\\"
+elif platform.system() == "Linux":
+    splitchar = "/"
 ia.seed(1)
  
 classes = ["boat", "pier"]
 
 classes_count = ["Ferry", "Vessel/ship", "Speed boat", "Boat", "Kayak", "Sail boat"]
+
+
+def getEnds(filenameFront):
+    if os.path.exists(filenameFront + '.jpg'):
+                strends = ".jpg"
+    elif os.path.exists(filenameFront + '.jpeg'):
+                strends = ".jpeg"
+    elif os.path.exists(filenameFront + '.png'):
+                strends = ".png"
+    else:
+        strends = "None"
+    return strends
 
 
 def mk_difficult_zero_change_class(root, image_id, saveroot = None): # 修改本地文件
@@ -122,7 +139,8 @@ def change_xml_list_annotation(root, image_id, new_target, saveroot, id):
     in_file = open(os.path.join(root, str(image_id) + '.xml'), encoding='UTF-8' )  # 这里root分别由两个意思
     tree = ET.parse(in_file)
     elem = tree.find('filename')
-    elem.text = (str("%06d" % int(id)) + '.jpg')
+    cxla_strends = getEnds(os.path.join(root, str(image_id)))
+    elem.text = (str("%06d" % int(id)) + cxla_strends)
     xmlroot = tree.getroot()
     index = 0
  
@@ -157,7 +175,7 @@ def mkdir(path):
     # 去除首位空格
     path = path.strip()
     # 去除尾部 \ 符号 ， linux系统下做相应的修改
-    path = path.rstrip("\\")
+    path = path.rstrip(splitchar)
     # 判断路径是否存在
     # 存在     True
     # 不存在   False
@@ -173,7 +191,10 @@ def mkdir(path):
         # 如果目录存在则不创建，并提示目录已存在
         print(path + ' 目录已存在')
         return False
- 
+
+
+
+
  
 if __name__ == "__main__":
     
@@ -181,11 +202,11 @@ if __name__ == "__main__":
     AUGLOOP = 2  # 每张影像增强的数量
     recorrect = True
     # IMG_DIR = "F:\Datasets\VOCdevkit2\Init\JPEGImages"  # 原始图片数据文件路径
-    IMG_DIR = "F:\Datasets\VOCdevkit2\InitToTest\JPEGImages"  # 原始图片数据文件路径
+    IMG_DIR = "./newboat/img"  # 原始图片数据文件路径
     # XML_DIR = "F:\Datasets\VOCdevkit2\Init\Annotations"  # 原始xml数据文件路径
-    XML_DIR = "F:\Datasets\VOCdevkit2\InitToTest\Annotations"  # 原始xml数据文件路径
-    AUG_XML_DIR = "F:\Datasets\VOCdevkit2\VOC2007Test\Annotations"  # 存储增强后的XML文件夹路径
-    AUG_IMG_DIR = "F:\Datasets\VOCdevkit2\VOC2007Test\JPEGImages"  # 存储增强后的影像文件夹路径
+    XML_DIR = "./newboat/anotations"  # 原始xml数据文件路径
+    AUG_XML_DIR = "./newboat/imgEnhance"  # 存储增强后的XML文件夹路径
+    AUG_IMG_DIR = "./newboat/anotationsEnhance"  # 存储增强后的影像文件夹路径
 
     # 修改矫正xml文件中的标签信息
     if recorrect:
@@ -259,7 +280,9 @@ if __name__ == "__main__":
     for root, sub_folders, filesall in os.walk(XML_DIR):
         for name in filesall:
             shutil.copy(os.path.join(XML_DIR, name), AUG_XML_DIR) # 复制原xml文件
-            shutil.copy(os.path.join(IMG_DIR, name[:-4] + '.jpg'), AUG_IMG_DIR) # 复制原img文件
+            # filenameFront, filenameEnd = getEnds(os.path.join(XML_DIR, name))
+            strends = getEnds(os.path.join(IMG_DIR , name[:-4]))
+            shutil.copy(os.path.join(IMG_DIR, name[:-4] + strends), AUG_IMG_DIR) # 复制原img文件
         filesNum = len(filesall) # 所有文件的长度
         if(filesNum == 0):
             print("没有要增强的文件")
@@ -284,7 +307,8 @@ if __name__ == "__main__":
                     seq = iaa.Sequential([sequentialList[i] for i in seqindexList])
                     seq_det = seq.to_deterministic()  # 保持坐标和图像同步改变，而不是随机
                     # 读取图片
-                    img = Image.open(os.path.join(IMG_DIR, name[:-4] + '.jpg'))
+                    strends_ = getEnds(os.path.join(IMG_DIR, name[:-4]))
+                    img = Image.open(os.path.join(IMG_DIR, name[:-4] + strends_))
                     # sp = img.size
                     img = np.asarray(img)
                     # 添加针对空图片的处理，即图像中没有标注信息时，对len(bndbox)的循环失效，里面的图片复制没有执行，但是外面的图像增强执行
@@ -292,7 +316,7 @@ if __name__ == "__main__":
                         # 存储变化后的图片
                         image_aug = seq_det.augment_images([img])[0]
                         # path = os.path.join(AUG_IMG_DIR,str("%06d" % (len(files) + int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
-                        path = os.path.join(AUG_IMG_DIR, str("%06d" % (int(name[:-4]) + (epoch + 1) * 10000)) + '.jpg')
+                        path = os.path.join(AUG_IMG_DIR, str("%06d" % (int(name[:-4]) + (epoch + 1) * 10000)) + strends_)
 
                         #image_auged = bbs.draw_on_image(image_aug, thickness=0)  ####################################
 
@@ -324,7 +348,7 @@ if __name__ == "__main__":
                             # 存储变化后的图片
                             image_aug = seq_det.augment_images([img])[0]
                             # path = os.path.join(AUG_IMG_DIR,str("%06d" % (len(files) + int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
-                            path = os.path.join(AUG_IMG_DIR,str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + '.jpg')
+                            path = os.path.join(AUG_IMG_DIR,str("%06d" % (int(name[:-4]) + (epoch+1) * 10000)) + strends_)
 
                             image_auged = bbs.draw_on_image(image_aug, thickness=0)####################################
 

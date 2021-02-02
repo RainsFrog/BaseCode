@@ -1,3 +1,29 @@
+#!/usr/bin/env python
+# -*- encoding: utf-8 -*-
+# -----------------------------------------------------
+# @Filename    :genfiles.py
+# @Notice    : 将voc格式的数据集分割成训练集和测试集，为避免麻烦，最好将
+              #要处理的数据集编程VOC格式即如下所示：
+              # 
+              #------------------------------------------------
+              # genfiles.py
+              # VOCkeit
+              # |____VOC2007
+              #      |____JPEGImages --> 存放数据图片
+              #      |____Anotations --> 存放xml格式数据标签
+              #      |____labels --> .txt格式的标签存储位置
+              #
+              # 最后会在VOCKeit同级目录下生成train.txt， test.txt两个数据索引。darknet训练时可以直接再data中指定这两个文件即可。
+              # ------------------------------------------------
+              # 如果要追加数据，可以将原VOCKeit文件夹改名，并将新的数据按照上述的文件树存储
+              # 数据，然后执行该文件。将执行过后生成的图片、标签文件复制到总数据集中， 数据路劲该索引，即train.txt中的内容复制粘贴到
+              # 原来的train.txt文件后就行。
+# @Time    :2021/02/02 12:58:56
+# @Author    :RainsFrog
+# @Version    :v1.0
+# ----------------------------------------------------
+
+
 import xml.etree.ElementTree as ET
 import pickle
 import os
