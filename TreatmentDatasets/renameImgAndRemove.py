@@ -6,8 +6,18 @@
 """
 
 import os
+from os.path import split
 import time
+import sys
+import platform
+
+# 获取不同系统下的目录分隔符
+if platform.system() == "Windows":
+    splitchar = "\\"
+elif platform.system() == "Linux":
+    splitchar = "/"
 # 获取annotion文件夹下的所有文件名，
+
 def removeUnsuiltImg(anopath, imgpath):
     """
     docstring
@@ -16,7 +26,6 @@ def removeUnsuiltImg(anopath, imgpath):
     # anopath = os.getcwd() + "\\newboat"+"\\anotations\\" 
     filenameList = os.listdir(anopath)
     filenameFront = [file.split(".")[0] for file in  filenameList] # annotions 前缀
-
     # imgpath = os.getcwd() + "\\newboat"+"\\img\\"
     # print(imgpath)
     imgnameList = os.listdir(imgpath)
@@ -28,9 +37,12 @@ def removeUnsuiltImg(anopath, imgpath):
             if os.path.exists(filepath + ".jpg"):
                 os.remove(imgpath + fileFront+".jpg")
                 print(imgpath + fileFront+".jpg" + " removed")
-            if os.path.exists(filepath + ".jpeg"):
+            elif os.path.exists(filepath + ".jpeg"):
                 os.remove(imgpath + ".jpeg")
                 print(imgpath + fileFront+".jpeg" + " removed")
+            elif os.path.exists(filepath + ".png"):
+                os.remove(imgpath + ".png")
+                print(imgpath + fileFront+".png" + " removed")
             else:
                 print(filepath + "文件不存在！")
                 raise Exception ("文件不存在")
@@ -66,13 +78,36 @@ def renameTheFile(imgpath, anotationpath):
     
     print("Finish check and rename!")
 
+def renameTheFile(path, endsStr):
+    """
+    用来对目录下某一类别的文件进行重命名
+
+    :param path: [文件夹]
+    :type path: [str]
+    :param endsStr: 文件结尾后缀
+    """
+    filesList = os.listdir(path)
+    # 获取当前时间戳：
+    timeNowStr = time.localtime()
+    timedateStr = time.strftime("%Y%m%d", timeNowStr)
+
+    for i, filename in enumerate(filesList):
+        splitStrList = filename.rsplit(".")
+        print(splitStrList, "\n")
+        namefront, ends = splitStrList[-2],  splitStrList[-1]
+        # if ends == endsStr:
+        
+        pathName = os.path.join(path, filename)
+        os.rename(pathName, path + timedateStr + "{:>04d}.".format(i) + ends)
+        print(namefront,"--",  ends, "--", pathName, "\n")
 
 
 if __name__ == "__main__":
     # anopath = os.getcwd() + "\\newboat"+"\\anotations\\"
-    anopath = os.getcwd() + "\\VOCdevkit\\VOC2007\\Annotations\\"
+    anopath = os.getcwd() + "\\newboat\\anotations\\"
     print(anopath)
-    imgpath = os.getcwd() + "\\VOCdevkit\\VOC2007\\JPEGImages\\"
+    imgpath = os.getcwd() + "\\newboat\\img\\"
     removeUnsuiltImg(anopath, imgpath)
-    renameTheFile(imgpath, anopath)
-    removeUnsuiltImg(anopath,imgpath)
+    # renameTheFile(imgpath, anopath)
+    # removeUnsuiltImg(anopath,imgpath)
+    # renameTheFile("F:\\Datasets\\newboat\\img\\", "jpg")

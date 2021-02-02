@@ -177,13 +177,15 @@ def mkdir(path):
  
 if __name__ == "__main__":
     
-    treatmentPercent = 1 # 图像增强比例，在0,1之间
+    treatmentPercent = 0.8 # 图像增强比例，在0,1之间
     AUGLOOP = 2  # 每张影像增强的数量
     recorrect = True
-    IMG_DIR = "F:\Datasets\VOCdevkit2\Init\JPEGImages"  # 原始图片数据文件路径
-    XML_DIR = "F:\Datasets\VOCdevkit2\Init\Annotations"  # 原始xml数据文件路径
-    AUG_XML_DIR = "F:\Datasets\VOCdevkit2\VOC2007\Annotations"  # 存储增强后的XML文件夹路径
-    AUG_IMG_DIR = "F:\Datasets\VOCdevkit2\VOC2007\JPEGImages"  # 存储增强后的影像文件夹路径
+    # IMG_DIR = "F:\Datasets\VOCdevkit2\Init\JPEGImages"  # 原始图片数据文件路径
+    IMG_DIR = "F:\Datasets\VOCdevkit2\InitToTest\JPEGImages"  # 原始图片数据文件路径
+    # XML_DIR = "F:\Datasets\VOCdevkit2\Init\Annotations"  # 原始xml数据文件路径
+    XML_DIR = "F:\Datasets\VOCdevkit2\InitToTest\Annotations"  # 原始xml数据文件路径
+    AUG_XML_DIR = "F:\Datasets\VOCdevkit2\VOC2007Test\Annotations"  # 存储增强后的XML文件夹路径
+    AUG_IMG_DIR = "F:\Datasets\VOCdevkit2\VOC2007Test\JPEGImages"  # 存储增强后的影像文件夹路径
 
     # 修改矫正xml文件中的标签信息
     if recorrect:
@@ -255,6 +257,9 @@ if __name__ == "__main__":
 
     print("正在进行图像增强：")
     for root, sub_folders, filesall in os.walk(XML_DIR):
+        for name in filesall:
+            shutil.copy(os.path.join(XML_DIR, name), AUG_XML_DIR) # 复制原xml文件
+            shutil.copy(os.path.join(IMG_DIR, name[:-4] + '.jpg'), AUG_IMG_DIR) # 复制原img文件
         filesNum = len(filesall) # 所有文件的长度
         if(filesNum == 0):
             print("没有要增强的文件")
@@ -262,7 +267,7 @@ if __name__ == "__main__":
         if not (treatmentPercent == 1): # 对于全部处理，直接计算
             countToTreat = int(filesNum * treatmentPercent) # 计算要处理的数量    
             # 随机生成上面数量的索引列表
-            indexList = random.sample(range(1, countToTreat), filesNum)
+            indexList = random.sample(range(1, filesNum), countToTreat)
             # 生成要处理的文件列表
             files = [filesall[i] for i in indexList]
         else:
@@ -270,8 +275,6 @@ if __name__ == "__main__":
         for name in tqdm(files):
             try:    
                 bndbox = read_xml_annotation(XML_DIR, name)
-                shutil.copy(os.path.join(XML_DIR, name), AUG_XML_DIR) # 复制原xml文件
-                shutil.copy(os.path.join(IMG_DIR, name[:-4] + '.jpg'), AUG_IMG_DIR) # 复制原img文件
                 # print(os.path.join(IMG_DIR, name[:-4] + '.jpg'))
     
                 for epoch in range(AUGLOOP):
@@ -338,4 +341,4 @@ if __name__ == "__main__":
                 raise e
     print("处理完毕")
 
-    os.system("pause")
+    # os.system("pause")
