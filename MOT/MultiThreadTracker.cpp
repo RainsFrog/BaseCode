@@ -7,12 +7,12 @@
 bool pushFlag = false;
 std::vector<cv::Rect> global_bboxes;
 
-// 定义一个struct，用来传递参数到鼠标回调函数
+
 typedef struct mousepara
 {
 	cv::Mat frame = cv::Mat(1080, 1920, CV_8UC3);
 	std::vector<cv::Rect> bboxes;
-	bool onFlag = false;// 标志位，是否触发了鼠标事件
+	bool onFlag = false;
 };
 
 extern std::vector<std::string> trackerTypes;
@@ -28,7 +28,6 @@ void subtrack(cv::Tracker *tracker, cv::Mat *frame, cv::Rect2d bbox) //
 void funMytracker(std::vector<cv::Ptr<cv::Tracker>>* tracker, cv::Mat* frame, std::vector<cv::Rect2d>* bbox, std::vector<bool>* ok_, int i) 
 {
 	(*ok_)[i] = (*tracker)[i]->update(*frame, (*bbox)[i]);
-	// std::cout << "当前线程id是：" << std::this_thread::get_id() << std::endl;
 }
 void funMytracker_erase_(std::vector<cv::Ptr<cv::Tracker>>* tracker, std::vector<cv::Rect2d>* bbox, std::vector<bool>* ok_CSRT, std::vector<clock_t>* Start_time_record, std::vector<double>* fish_distance, std::vector<cv::Rect2d>* ptr_bboxCSRT, int i) {
 	(*tracker).erase((*tracker).begin() + i);
@@ -98,8 +97,7 @@ void MouseEvent(int event, int x, int y, int flags, void *para)
 		pushFlag = true;
 		// std::cout << p->frame << std::endl;
 		//std::cout << p->bboxes.back().x << std::endl;
-		std::cout << "调用鼠标时间函数时，内部指针地址：" << p << std::endl;
-		
+		//std::cout << "调用鼠标时间函数时，内部指针地址：" << p << std::endl;
 		//memcpy(para, p, (sizeof(p->frame) + p->bboxes.size() * sizeof(cv::Rect)));
 
 		Sleep(1);
@@ -113,9 +111,7 @@ int motThread()
 	// video path
 	bool OK_0 = false;
 	bool slectRoi = false;
-	// std::string videopath = "rtsp://admin:zhhh6052@10.0.105.102:554/cam/realmonitor?channel=1&subtype=0";
 	std::string videopath = "3.avi";
-	// 
 	bool showCrosshair = true;
 	bool fromCenter = false;
 	// 初始化多目标跟踪框
@@ -123,7 +119,7 @@ int motThread()
 	std::vector<cv::Rect> bboxes_;
 	std::vector<cv::Rect> bboxes2;
 
-	// 创建capture object ,读取视频
+
 	cv::VideoCapture cap(videopath);
 	cv::Mat frame, frame_;
 	// 无法读取那么退出
@@ -158,11 +154,11 @@ int motThread()
 	std::vector<cv::Ptr<cv::Tracker>> Mytracker;
 	std::vector<bool> OK_;
 	//*******************************************
-	// 初始化跟踪器
+	// init the tracker ;
 	std::string trackerType = "KCF";
 	// 创建目标检测器
 
-	// 初始化多目标跟踪器,将多个目标跟踪器放入到vector中
+	// 初始化多目标跟踪器,将多个目标跟踪器放入到vector中。Init MOT trackers, push few MOT-tracker into Vector.
 	//for (int i = 0; i < bboxes_.size();i++)
 	//{
 	//	bboxes.push_back(cv::Rect2d(bboxes_[i].x, bboxes_[i].y, bboxes_[i].width, bboxes_[i].height));
@@ -176,12 +172,12 @@ int motThread()
 	{
 		if (!cap.read(frame))
 		{
-			std::cout << "视频读取结束" << std::endl;
+			std::cout << "Video is ended!" << std::endl;
 			return 0;
 		}
 		if (frame.empty())
 			break;
-		// 新的一帧更新目标跟踪框, 多线程实现
+		// The biger size frame needs more source of cpu, it will be faster if resize the frame into a smaller size.
 		cv::resize(frame, frame, cv::Size(), 0.4, 0.4);
 		clock_t startTime = clock();
 		for (int i = 0; i < Mytracker.size(); i++)
@@ -194,21 +190,22 @@ int motThread()
 			ite.join();
 		}
 		TrackerThread_.clear();
-		// 绘制跟踪目标检测框
+		// show the tracker bbox.
 		for (unsigned i = 0;i< Mytracker.size(); i++)
 		{
 			cv::rectangle(frame, bboxes[i], colors[i], 2, 1);
 		}
 		// 添加鼠标事件
-		
+		/*
+		》》 此处尝试使用指针传参，调用鼠标事件函数改变值，未成功，改为全局变量实现。
+		》》 TODO： 上述方法是否能实现。
+		*/
 		// structMousePara_.onFlag = false;
 		// std::vector<>
 		// mousepara * structMousePara = new mousepara(1096*1080+ sizeof(cv::Rect)*20);
 		mousepara structMousePara_;
-		std::cout << "外部变量地址：" <<&structMousePara_ << std::endl;
 		structMousePara_.frame = frame;
 		mousepara *structMousePara = &structMousePara_;
-		std::cout << "外部指针变量地址：" << structMousePara << std::endl;
 		clock_t endTime = clock();
 		double usingtime = double(endTime - startTime)/ CLOCKS_PER_SEC;
 		char ctime[20];
@@ -225,15 +222,12 @@ int motThread()
 			//for (auto bbox : structMousePara->bboxes)
 			{
 				bboxes_.push_back(bbox);
-				cv::Ptr<cv::Tracker> tracker_add = cv::TrackerKCF::create(); // 初始化新的跟踪
+				cv::Ptr<cv::Tracker> tracker_add = cv::TrackerKCF::create(); // init the new track.
 				tracker_add->init(frame, cv::Rect2d(bbox.x, bbox.y, bbox.width, bbox.height));
 				Mytracker.push_back(tracker_add);
 				OK_.push_back(OK_0);
 			}
-			//bboxes.swap(std::vector<cv::Rect2d>());
-			// 添加新的跟踪：
-			
-			// initTracker(bboxes_, bboxes, frame, Mytracker, OK_, OK_0);
+			//bboxes.swap(std::vector<cv::Rect2d>()); // 
 			structMousePara->onFlag = false;
 			pushFlag = false;
 			global_bboxes.swap(std::vector<cv::Rect>());

@@ -63,3 +63,17 @@ KeyWords：数据集处理，VOC， COCO， Yolo， 图像增强
 * 04ImagePretreatment.cpp
 
   这是一个自己实现的opencv-C++中的目前了解到的图像处理算法，包括特征查找、亮度变化、模糊等方法
+
+---
+
+# MOT
+
+此文件夹中放置的MOT（多目标跟踪）中的一些基础代码。
+
+* MultiThreadTracker.cpp
+
+  多线程实现KCF多目标跟踪。初始帧绘制跟踪目标。后续可添加新的跟踪目标。
+
+  TODO:
+
+  - [ ] 增加目标重合判断，新选取的目标与原目标重合度是否过大。
