@@ -4,17 +4,14 @@
 #include<Windows.h>
 #include<time.h>
 #include"MouseEvent.h"
+#include"dataType.h"
+
 
 bool pushFlag = false;
 std::vector<cv::Rect> global_bboxes;
 
-
-typedef struct mousepara
-{
-	cv::Mat frame = cv::Mat(1080, 1920, CV_8UC3);
-	std::vector<cv::Rect> bboxes;
-	bool onFlag = false;
-};
+// std::vector<cv::Rect> rectStore;
+std::vector<cv::Rect> rectStore; // 用来存储我们画出来的检测框，此处循环显示 
 
 extern std::vector<std::string> trackerTypes;
 // 目标跟踪框初始化程序，对向量中的各个bbox创建跟踪器。
@@ -52,6 +49,28 @@ void initTracker(std::vector<cv::Rect>& bboxes_, std::vector<cv::Rect2d>& bboxes
 		OK_.push_back(OK_0);// 是否跟踪
 	}
 }
+
+void MouseEvent2(int event, int x, int y, int flags, void *para)
+{
+	mousepara *p = static_cast<mousepara *>(para);
+
+	switch (event)
+	{
+	case cv::EVENT_RBUTTONDOWN:
+		cv::selectROIs("MultiTracker", p->frame, global_bboxes);
+		p->onFlag = true;
+		pushFlag = true;
+		// std::cout << p->frame << std::endl;
+		//std::cout << p->bboxes.back().x << std::endl;
+		//std::cout << "调用鼠标时间函数时，内部指针地址：" << p << std::endl;
+		//memcpy(para, p, (sizeof(p->frame) + p->bboxes.size() * sizeof(cv::Rect)));
+
+		Sleep(1);
+	default:
+		break;
+	}
+}
+
 
 
 int motThread()
@@ -154,21 +173,27 @@ int motThread()
 		// mousepara * structMousePara = new mousepara(1096*1080+ sizeof(cv::Rect)*20);
 		mousepara structMousePara_;
 		structMousePara_.frame = frame;
-		mousepara *structMousePara = &structMousePara_;
+		//mousepara *structMousePara = &structMousePara_;
 		clock_t endTime = clock();
 		double usingtime = double(endTime - startTime)/ CLOCKS_PER_SEC;
-		char ctime[20];
-		sprintf(ctime, "time:%0.4f, fps:%0.2f", usingtime, 1/usingtime);
+		char ctime[40];
+		sprintf_s(ctime, "time:%0.4f, fps:%0.2f", usingtime, 1/usingtime);
 		cv::putText(frame, ctime, cv::Point(frame.size().width - 600, 90), cv::FONT_HERSHEY_COMPLEX, 0.5, cv::Scalar(0, 125, 0), 1);
-		imshow("MultiTracker", frame);
-		cv::setMouseCallback("MultiTracker", MouseEvent, structMousePara);
 		
+		structMousePara_.bboxes.clear();
+		structMousePara_.arrayBox[0] = cv::Rect(0, 0, 0, 0);
+		cv::setMouseCallback("MultiTracker", MouseEvent, &structMousePara_);
+
+		imshow("MultiTracker", structMousePara_.frame);
+		// 按键退出
 		// if (structMousePara->onFlag == true)
-		Sleep(1);
+		//global_bboxes = structMousePara->bboxes;
 		if (pushFlag == true)
+		
+		//if (structMousePara_.onFlag == true)
 		{
 			for (auto bbox : global_bboxes)
-			//for (auto bbox : structMousePara->bboxes)
+			//for (auto bbox : structMousePara_.bboxes)
 			{
 				bboxes_.push_back(bbox);
 				cv::Ptr<cv::Tracker> tracker_add = cv::TrackerKCF::create(); // init the new track.
@@ -177,14 +202,11 @@ int motThread()
 				OK_.push_back(OK_0);
 			}
 			//bboxes.swap(std::vector<cv::Rect2d>()); // 
-			structMousePara->onFlag = false;
+			
 			pushFlag = false;
+			structMousePara_.onFlag = false;
 			global_bboxes.swap(std::vector<cv::Rect>());
 		}
-		//delete structMousePara;
-		structMousePara = NULL;
-
-		// 按键退出
 		if (cv::waitKey(1) == 27)
 			break;
 	}
